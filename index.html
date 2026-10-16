@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UDM License Admin</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#101827;
+  color:#f1f5f9;
+}
+.container{max-width:650px;margin:auto;padding:20px}
+h1{color:#38bdf8;text-align:center}
+.card{
+  background:#1e293b;
+  padding:18px;
+  border-radius:14px;
+  margin:16px 0;
+}
+input,button{
+  width:100%;
+  padding:13px;
+  margin:7px 0;
+  border-radius:8px;
+  font-size:16px;
+}
+input{
+  background:#0f172a;
+  color:white;
+  border:1px solid #475569;
+}
+button{
+  border:0;
+  background:#0284c7;
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
+}
+button.secondary{background:#475569}
+button:disabled{opacity:.5}
+.status{white-space:pre-wrap;overflow-wrap:anywhere}
+.small{color:#cbd5e1;font-size:13px}
+.hidden{display:none}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>UDM LICENSE ADMIN</h1>
+  <p style="text-align:center">UDM MOBILE REPAIR</p>
+
+  <div class="card" id="loginCard">
+    <h2>Admin Login</h2>
+    <input id="pin" type="password" placeholder="Enter Admin PIN">
+    <button onclick="login()">Login</button>
+    <p class="small">
+      Admin access only. Keep your PIN private.
+    </p>
+    <div id="loginMessage" class="status"></div>
+  </div>
+
+  <div id="adminPanel" class="hidden">
+    <div class="card">
+      <h2>Create New License</h2>
+      <input id="shopName" placeholder="Shop Name">
+      <input id="telephone" placeholder="Telephone">
+      <input id="address" placeholder="Shop Address">
+      <input id="deviceId" placeholder="Customer Device ID">
+      <button onclick="createLicense()">Create 6-Month License</button>
+    </div>
+
+    <div class="card">
+      <h2>Renew License</h2>
+      <input id="renewId" placeholder="License ID e.g. UDML-0001">
+      <button onclick="renewLicense()">Renew for 6 Months</button>
+    </div>
+
+    <div class="card">
+      <h2>Change Registered Device</h2>
+      <input id="changeId" placeholder="License ID">
+      <input id="newDeviceId" placeholder="New Device ID">
+      <button onclick="changeDevice()">Update Device ID</button>
+    </div>
+
+    <div class="card">
+      <h2>Result</h2>
+      <div id="result" class="status">Ready.</div>
+      <button class="secondary" onclick="logout()">Logout</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL =
+  "https://script.google.com/macros/s/AKfycbzA6TLZ1cCrEhRdqrYCHjmor0r6nld9whoVGqoTGvG5nhJWefRwUziTg-WG5WSSs8jw-A/exec";
+
+let adminPin = "";
+
+function login(){
+  const pin = document.getElementById("pin").value.trim();
+  if(!pin){
+    document.getElementById("loginMessage").textContent =
+      "Please enter your Admin PIN.";
+    return;
+  }
+
+  adminPin = pin;
+  document.getElementById("loginCard").classList.add("hidden");
+  document.getElementById("adminPanel").classList.remove("hidden");
+  document.getElementById("loginMessage").textContent = "";
+}
+
+function logout(){
+  adminPin = "";
+  document.getElementById("pin").value = "";
+  document.getElementById("adminPanel").classList.add("hidden");
+  document.getElementById("loginCard").classList.remove("hidden");
+}
+
+async function requestAction(action, fields){
+  const result = document.getElementById("result");
+  result.textContent = "Processing...";
+
+  const form = new URLSearchParams({
+    action,
+    pin: adminPin,
+    ...fields
+  });
+
+  try{
+    const response = await fetch(API_URL, {
+      method:"POST",
+      body:form
+    });
+
+    const data = await response.json();
+    result.textContent = JSON.stringify(data, null, 2);
+
+    if(!data.success){
+      alert(data.message || "Request failed.");
+    }
+    return data;
+  }catch(error){
+    result.textContent =
+      "Request failed. Check the Apps Script deployment and connection.\n" +
+      error.message;
+    return null;
+  }
+}
+
+async function createLicense(){
+  const shopName = document.getElementById("shopName").value.trim();
+  const telephone = document.getElementById("telephone").value.trim();
+  const address = document.getElementById("address").value.trim();
+  const deviceId = document.getElementById("deviceId").value.trim();
+
+  if(!shopName || !telephone || !address || !deviceId){
+    alert("Please fill in all four fields.");
+    return;
+  }
+
+  const data = await requestAction("create", {
+    shopName, telephone, address, deviceId
+  });
+
+  if(data && data.success){
+    alert("License created: " + data.licenseId);
+  }
+}
+
+async function renewLicense(){
+  const licenseId = document.getElementById("renewId").value.trim();
+  if(!licenseId){
+    alert("Enter a License ID.");
+    return;
+  }
+  await requestAction("renew", {licenseId});
+}
+
+async function changeDevice(){
+  const licenseId = document.getElementById("changeId").value.trim();
+  const deviceId = document.getElementById("newDeviceId").value.trim();
+
+  if(!licenseId || !deviceId){
+    alert("Enter both License ID and new Device ID.");
+    return;
+  }
+
+  if(!confirm("Replace the registered device for this license?")){
+    return;
+  }
+
+  await requestAction("changeDevice", {licenseId, deviceId});
+}
+</script>
+</body>
+  </html>
